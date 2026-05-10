@@ -1,52 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import CardPedido from './CardPedido';
 
-// 1. IMPORTAÇÕES DO REDUX
-// useSelector: Para ler dados do cofre
-// useDispatch: Para enviar comandos de mudança para o cofre
+/* ==========================================================================
+   1. IMPORTAÇÕES DE GERENCIAMENTO DE ESTADO (REDUX)
+   ========================================================================== */
+// useSelector: Hook para ler dados armazenados no estado global.
+// useDispatch: Hook para disparar ações que alteram o estado global.
 import { useSelector, useDispatch } from 'react-redux';
 import { salvarPedidosNoCofre } from './store/pedidosSlice';
-import logoVelato from './assets/logo-velato.png';
 
+/**
+ * Componente Principal da Aplicação Kanban - Velato
+ * Responsável por renderizar a interface de colunas, orquestrar o estado
+ * global dos pedidos e gerenciar a interface de criação de novas tarefas.
+ */
 const App = () => {
-  // 2. CONFIGURAÇÃO DO REDUX
+  /* ==========================================================================
+     2. INICIALIZAÇÃO DE ESTADOS (REDUX E REACT HOOKS)
+     ========================================================================== */
   const dispatch = useDispatch();
   
-  // Aqui "plugamos" na gaveta de pedidos e pegamos a lista global
-  // state.pedidos.lista vem do nome que demos no store/index.js e no slice
+  // Acesso ao estado global: extrai a lista de pedidos gerenciada pelo Redux.
   const pedidos = useSelector((state) => state.pedidos.lista);
 
-  // 3. ESTADOS LOCAIS 
-  // Estados de formulário e modal continuam aqui porque são "temporários"
+  // Estados locais: utilizados exclusivamente para o controle do formulário 
+  // de criação de pedido e visibilidade do modal.
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [responsavel, setResponsavel] = useState('');
+  const [prioridade, setPrioridade] = useState(3); // Inicializa com prioridade Baixa (3)
   const [mostrarModal, setMostrarModal] = useState(false);
 
-  // 4. ESTILOS 
-  // 1. Estilos Minimalistas - Identidade Velato (Cores Oficiais)
+  /* ==========================================================================
+     3. DEFINIÇÃO DE ESTILOS INLINE (CSS-in-JS) - IDENTIDADE VELATO
+     ========================================================================== */
+  // Container master que engloba toda a aplicação.
   const containerStyle = {
-    backgroundColor: '#f6f0e7', // Fundo principal (laranja claro/bege)
+    backgroundColor: '#f6f0e7', 
     fontFamily: "'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif",
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    color: '#252623' // Texto principal
+    color: '#252623'
   };
 
+  // Estilo do cabeçalho de navegação superior.
   const headerVelatoStyle = {
     backgroundColor: '#f6f0e7',
     padding: '20px 40px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottom: '2px solid #3c5262', // Linha inferior com o Azure apagado
+    borderBottom: '2px solid #3c5262',
     marginBottom: '30px'
   };
 
+  // Estilo padronizado para o botão primário de ação (Call to Action).
   const botãoCriarPedido = {
     padding: '10px 24px',
-    backgroundColor: '#ae4f48', // Vermelho da marca para destacar a ação primária
+    backgroundColor: '#ae4f48',
     color: '#f6f0e7',
     border: 'none',
     borderRadius: '4px',
@@ -59,6 +71,7 @@ const App = () => {
     gap: '8px'
   };
 
+  // Container que abriga o grid do Kanban, permitindo rolagem horizontal caso necessário.
   const kanbanContainerStyle = { 
     display: 'flex', 
     gap: '24px', 
@@ -68,83 +81,94 @@ const App = () => {
     overflowX: 'auto'
   };
 
+  // Container estrutural de cada coluna do Kanban. Define altura fixa para habilitar o scroll.
   const colunaStyle = { 
-    backgroundColor: '#ffffff', // Fundo branco para as colunas, dando destaque aos cartões
+    backgroundColor: '#ffffff',
     flex: 1, 
     minWidth: '260px', 
-    minHeight: '650px', 
+    height: '75vh', // Limita a altura da coluna em 75% da janela
     borderRadius: '6px', 
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    border: '1px solid #e5e7eb' // Borda neutra muito subtil
+    border: '1px solid #e5e7eb'
   };
 
-  // Aplicação estrita da paleta Velato nos cabeçalhos das colunas
+  // Configuração semântica e visual das colunas do sistema.
   const colunas = [
-    { titulo: 'Pedidos', cor: '#3c5262' },            // Azure apagado
-    { titulo: 'Pagamento Confirmado', cor: '#a79261' }, // Laranja apagado (Mostarda/Castanho)
-    { titulo: 'Pedido separado', cor: '#ae4f48' },      // Vermelho
-    { titulo: 'Pedido Enviado', cor: '#252623' },       // Gradiente escuro (sólido)
-    { titulo: 'Pedido Entregue', cor: '#3c5262' },      // Azure apagado para fechar o ciclo
+    { titulo: 'Pedidos', cor: '#3c5262' },
+    { titulo: 'Pagamento Confirmado', cor: '#a79261' },
+    { titulo: 'Pedido separado', cor: '#ae4f48' },
+    { titulo: 'Pedido Enviado', cor: '#252623' },
+    { titulo: 'Pedido Entregue', cor: '#3c5262' },
   ];
 
-  // Estilos do Modal (Janela de Novo Pedido) - Identidade Velato
+  // Estilo da sobreposição escura atrás do modal.
   const modalOverlayStyle = {
     position: 'fixed',
     top: 0,
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(37, 38, 35, 0.8)', // Fundo escuro transparente (cor #252623)
+    backgroundColor: 'rgba(37, 38, 35, 0.8)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000
   };
 
+  // Estilo da caixa branca principal do modal.
   const modalContentStyle = {
-    backgroundColor: '#f6f0e7', // Fundo principal da marca
+    backgroundColor: '#f6f0e7',
     padding: '30px',
     borderRadius: '4px',
     width: '400px',
     display: 'flex',
     flexDirection: 'column',
     gap: '15px',
-    border: '1px solid #3c5262' // Borda Azure
+    border: '1px solid #3c5262'
   };
 
+  // Estilo genérico para inputs textuais e seletores do formulário.
   const inputStyle = {
     padding: '12px',
     borderRadius: '4px',
-    border: '1px solid #a79261', // Borda Mostarda
+    border: '1px solid #a79261',
     backgroundColor: '#ffffff',
     color: '#252623',
     fontFamily: 'inherit',
     fontSize: '14px'
   };
 
-  // 5. BUSCA DE DADOS COM REDUX
+  /* ==========================================================================
+     4. INTEGRAÇÃO COM A API E LÓGICA DE NEGÓCIO
+     ========================================================================== */
+  
+  /**
+   * Executa uma requisição GET ao Backend para obter a lista atualizada
+   * de pedidos e os insere no estado global (Redux).
+   */
   const carregarPedidos = async () => {
     try {
       const response = await fetch('http://localhost:3000/tarefas');
       const data = await response.json();
-      
-      // Em vez de setPedidos(data), enviamos para o Redux
-      // O 'dispatch' entrega a lista para o 'salvarPedidosNoCofre' do Slice
       dispatch(salvarPedidosNoCofre(data));
-      
     } catch (error) {
-      console.error("Erro ao buscar tarefas:", error);
+      console.error("Erro ao buscar tarefas do servidor:", error);
     }
   };
 
+  // useEffect: Aciona o carregamento inicial dos pedidos assim que o App é montado na tela.
   useEffect(() => {
     carregarPedidos();
   }, []);
 
+  /**
+   * Coleta os dados do formulário local, compila o payload e envia via POST
+   * para o servidor persistir um novo pedido no banco de dados.
+   */
   const handleCriarPedido = async () => {
-    const novoPedido = { titulo, descricao, responsavel };
+    const novoPedido = { titulo, descricao, responsavel, prioridade };
 
     try {
         const response = await fetch('http://localhost:3000/tarefas', {
@@ -154,42 +178,71 @@ const App = () => {
         });
 
         if (response.ok) {
-          alert("Pedido salvo com sucesso!");
+          // Limpeza dos estados locais após sucesso na operação.
           setMostrarModal(false);
-          setTitulo(''); setDescricao(''); setResponsavel('');
-          carregarPedidos(); // Recarrega a lista no Redux
+          setTitulo(''); 
+          setDescricao(''); 
+          setResponsavel(''); 
+          setPrioridade(3);
+          
+          // Sincroniza o Frontend com a nova versão do banco.
+          carregarPedidos();
         }
     } catch (error) {
-        console.error("Erro ao conectar:", error);
+        console.error("Falha na comunicação com a API ao criar pedido:", error);
         alert("Não foi possível conectar ao servidor.");
     }
   };
 
+  /* ==========================================================================
+     5. RENDERIZAÇÃO DA INTERFACE (JSX)
+     ========================================================================== */
   return (
     <div style={containerStyle}>
-      {/* 1. JANELA MODAL  */}
+      
+      {/* --- BLOCO DO MODAL DE CRIAÇÃO --- */}
+      {/* A renderização condicional baseia-se no estado boolean 'mostrarModal' */}
       {mostrarModal && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
             <h3 style={{ margin: '0 0 10px 0' }}>Novo Pedido - Velato</h3>
+            
             <input 
               placeholder="Título do Pedido (Ex: Calça Jeans Slim)" 
               value={titulo} 
               onChange={(e) => setTitulo(e.target.value)} 
               style={inputStyle}
             />
+            
             <textarea 
               placeholder="Descrição detalhada" 
               value={descricao} 
               onChange={(e) => setDescricao(e.target.value)} 
               style={{ ...inputStyle, minHeight: '80px', resize: 'none' }}
             />
+            
             <input 
               placeholder="Responsável" 
               value={responsavel} 
               onChange={(e) => setResponsavel(e.target.value)} 
               style={inputStyle}
             />
+            
+            {/* Componente de seleção de prioridade numérica */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#3c5262' }}>PRIORIDADE:</label>
+              <select 
+                value={prioridade} 
+                onChange={(e) => setPrioridade(Number(e.target.value))} 
+                style={{ ...inputStyle, cursor: 'pointer' }}
+              >
+                <option value={1}>🔴 Alta (Urgente)</option>
+                <option value={2}>🟡 Média (Padrão)</option>
+                <option value={3}>🔵 Baixa (Opcional)</option>
+              </select>
+            </div>
+            
+            {/* Controles de submissão do formulário */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
               <button 
                 onClick={handleCriarPedido}
@@ -211,19 +264,14 @@ const App = () => {
                 Cancelar
               </button>
             </div>
+
           </div>
         </div>
       )}
 
-      {/* 2. CABEÇALHO DA MARCA (Identidade Visual Velato) */}
+      {/* --- BLOCO DO CABEÇALHO (HEADER) --- */}
       <header style={headerVelatoStyle}>
-        
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          {/* Assim que tiver o PNG importado, remova o comentário da tag <img> abaixo 
-            e apague a tag <h1>. Por agora, deixo a versão em texto com as cores corretas.
-          */}
-          {/* <img src={logoVelato} alt="Logo Velato" style={{ height: '40px' }} /> */}
-          
           <h1 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: '#252623', letterSpacing: '2px' }}>
             VELATO
           </h1>
@@ -232,17 +280,19 @@ const App = () => {
           </span>
         </div>
         
+        {/* Aciona a visibilidade do formulário de criação */}
         <button style={botãoCriarPedido} onClick={() => setMostrarModal(true)}>
           <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Novo Pedido
         </button>
       </header>
 
-      {/* 3. GRID DO KANBAN (Ocupa a largura total da tela) */}
+      {/* --- BLOCO DO GRID DE COLUNAS (KANBAN) --- */}
       <div style={kanbanContainerStyle}>
+        {/* Mapeia o array estrutural de colunas gerando a interface dinamicamente */}
         {colunas.map((col, index) => (
           <div key={index} style={colunaStyle}>
             
-            {/* Título da Coluna com a cor da marca */}
+            {/* Título Fixo da Coluna */}
             <div style={{ 
               padding: '15px', 
               textAlign: 'center', 
@@ -251,13 +301,13 @@ const App = () => {
               textTransform: 'uppercase',
               letterSpacing: '1px',
               backgroundColor: col.cor, 
-              color: '#FFFFFF',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              color: '#FFFFFF'
             }}>
               {col.titulo}
             </div>
 
-            {/* Espaço onde os cards de calças serão renderizados */}
+            {/* Container Dinâmico de Cards. 
+                Garante renderização isolada e barra de rolagem (overflowY) independente. */}
             <div style={{ 
               padding: '15px', 
               display: 'flex', 
@@ -266,8 +316,13 @@ const App = () => {
               flex: 1,
               overflowY: 'auto' 
             }}>
+              {/* O Pipeline de Processamento dos Cards consiste em:
+                  1. Filter: Isola apenas os pedidos pertencentes a coluna atual.
+                  2. Sort: Ordena os cards processando matematicamente o peso de prioridade.
+                  3. Map: Transmuta a linha de dados JSON em um componente visual <CardPedido />. */}
               {pedidos
                 .filter((pedido) => pedido.status === col.titulo)
+                .sort((a, b) => a.prioridade - b.prioridade) 
                 .map((pedido) => (
                   <CardPedido key={pedido.id} pedido={pedido} />
                 ))}
@@ -276,6 +331,7 @@ const App = () => {
           </div>
         ))}
       </div>
+
     </div>
   );
 };

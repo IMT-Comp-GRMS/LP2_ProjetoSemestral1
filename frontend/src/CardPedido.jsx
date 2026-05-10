@@ -70,15 +70,27 @@ const CardPedido = ({ pedido }) => {
   };
 
   // 4. Estilos Minimalistas Velato
+  // Mapeamento de cores da Velato para prioridades
+  const coresPrioridade = {
+    1: '#ae4f48', // Alta - Vermelho
+    2: '#a79261', // Média - Mostarda
+    3: '#3c5262'  // Baixa - Azure/Cinza
+  };
+
   const cardStyle = {
     backgroundColor: '#FFFFFF',
     padding: '15px',
     borderRadius: '4px',
-    border: '1px solid #E5E7EB',
+    // Adiciona a borda colorida na esquerda baseada na prioridade
+    borderLeft: `6px solid ${coresPrioridade[pedido.prioridade] || '#3c5262'}`,
+    borderBottom: '1px solid #E5E7EB',
+    borderRight: '1px solid #E5E7EB',
+    borderTop: '1px solid #E5E7EB',
+    position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-    position: 'relative' 
+    cursor: 'pointer'
   };
 
   const botaoStyle = {
