@@ -6,11 +6,11 @@ const CardPedido = ({ pedido }) => {
   
   // Estilo isolado só para o cartão
   const cardStyle = {
-    backgroundColor: 'white',
-    padding: '12px',
-    borderRadius: '6px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-    marginBottom: '10px' // Espaço entre um cartão e outro
+    backgroundColor: '#FFFFFF',
+    padding: '16px',
+    borderRadius: '4px',
+    border: '1px solid #E5E7EB', // Borda fina em vez de sombra gigante
+    marginBottom: '12px'
   };
 
   return (
