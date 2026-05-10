@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import CardPedido from './CardPedido';
 
 const App = () => {
   // 1. Estilos
@@ -88,6 +89,22 @@ const App = () => {
   const [responsavel, setResponsavel] = useState('');
   const [mostrarModal, setMostrarModal] = useState(false); // Para abrir/fechar a janelinha
 
+  // Busca os pedidos no Banco de Dados
+  const carregarPedidos = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/tarefas');
+      const data = await response.json();
+      setPedidos(data); // Salva as informações do backend no estado do React
+    } catch (error) {
+      console.error("Erro ao buscar tarefas:", error);
+    }
+  };
+
+  // O useEffect roda a função acima automaticamente quando a página carrega
+  useEffect(() => {
+    carregarPedidos();
+  }, []);
+
   // 3. Função do Botão
   const handleCriarPedido = async () => {
     const novoPedido = {
@@ -107,7 +124,7 @@ const App = () => {
           alert("Pedido salvo com sucesso!");
             setMostrarModal(false); // Fecha o modal
             setTitulo(''); setDescricao(''); setResponsavel(''); // Limpa os campos
-            // Chamar a função de carregar dados aqui (o item 2 que você mencionou)
+            carregarPedidos();
         }
     } catch (error) {
         console.error("Erro ao conectar:", error);
@@ -116,7 +133,7 @@ const App = () => {
   };
 
  
-  // 4. Renderização
+// 4. Renderização
   return (
     <div style={containerStyle}>
       {mostrarModal && (
@@ -155,9 +172,21 @@ const App = () => {
       <div style={kanbanContainerStyle}>
         {colunas.map((col, index) => (
           <div key={index} style={colunaStyle}>
+            
+            {/* Cabeçalho da Coluna */}
             <div style={{ ...headerColunaStyle, backgroundColor: col.cor }}>
               {col.titulo}
             </div>
+
+            {/* AQUI ESTÁ A NOVIDADE: Corpo da coluna onde chamamos o CardPedido */}
+            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {pedidos
+                .filter((pedido) => pedido.status === col.titulo)
+                .map((pedido) => (
+                  <CardPedido key={pedido.id} pedido={pedido} />
+                ))}
+            </div>
+
           </div>
         ))}
       </div>
