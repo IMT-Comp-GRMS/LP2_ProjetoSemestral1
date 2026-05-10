@@ -98,6 +98,27 @@ app.put('/tarefas/:id', async (req, res) => {
   }
 });
 
+// ==============================================================================
+// ROTA DELETE: Remove um pedido do banco de dados
+// ==============================================================================
+app.delete('/tarefas/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const sql = 'DELETE FROM tarefas WHERE id = ?';
+    const [resultado] = await conexao.query(sql, [id]);
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ erro: 'Pedido não encontrado.' });
+    }
+
+    res.status(200).json({ mensagem: 'Pedido excluído com sucesso!' });
+  } catch (erro) {
+    console.error("Erro ao excluir:", erro);
+    res.status(500).json({ erro: 'Erro ao excluir o pedido.' });
+  }
+});
+
 app.listen(3000, () => {
     console.log('Servidor rodando na porta 3000.')
 })

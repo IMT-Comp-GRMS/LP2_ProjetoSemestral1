@@ -49,6 +49,26 @@ const CardPedido = ({ pedido }) => {
     }
   };
 
+  const handleExcluir = async () => {
+    // Uma confirmação simples para evitar cliques acidentais
+    if (window.confirm(`Tem certeza que deseja excluir o pedido "${pedido.titulo}"?`)) {
+      try {
+        const response = await fetch(`http://localhost:3000/tarefas/${pedido.id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          // Atualiza o Redux buscando a lista nova (igual fazemos no mover)
+          const resLista = await fetch('http://localhost:3000/tarefas');
+          const listaAtualizada = await resLista.json();
+          dispatch(salvarPedidosNoCofre(listaAtualizada));
+        }
+      } catch (error) {
+        console.error("Erro ao excluir:", error);
+      }
+    }
+  };
+
   // 4. Estilos Minimalistas Velato
   const cardStyle = {
     backgroundColor: '#FFFFFF',
@@ -57,7 +77,8 @@ const CardPedido = ({ pedido }) => {
     border: '1px solid #E5E7EB',
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px'
+    gap: '10px',
+    position: 'relative' 
   };
 
   const botaoStyle = {
@@ -74,19 +95,44 @@ const CardPedido = ({ pedido }) => {
 
   return (
     <div style={cardStyle}>
-      <div style={{ fontWeight: '700', fontSize: '14px' }}>{pedido.titulo}</div>
-      <div style={{ fontSize: '12px', color: '#6B7280' }}>{pedido.descricao}</div>
+      {/* 1. O BOTÃO DE EXCLUIR ENTRA AQUI NO TOPO */}
+      <button 
+        onClick={handleExcluir}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '16px',
+          color: '#ae4f48', // Vermelho Velato
+          zIndex: 10
+        }}
+        title="Excluir Pedido"
+      >
+        🗑️
+      </button>
+
+      {/* 2. CONTEÚDO DO CARD */}
+      <div style={{ fontWeight: '700', fontSize: '14px', paddingRight: '20px' }}>
+        {pedido.titulo}
+      </div>
+      
+      <div style={{ fontSize: '12px', color: '#6B7280' }}>
+        {pedido.descricao}
+      </div>
+      
       <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#a79261' }}>
         Ref: {pedido.responsavel}
       </div>
 
+      {/* 3. BOTÕES DE NAVEGAÇÃO NO RODAPÉ DO CARD */}
       <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
-        {/* Só mostra o botão voltar se não estiver na primeira coluna */}
         {indexAtual > 0 && (
           <button onClick={handleVoltar} style={botaoStyle}> ⬅ Voltar </button>
         )}
         
-        {/* Só mostra o botão avançar se não estiver na última coluna */}
         {indexAtual < ordemColunas.length - 1 && (
           <button 
             onClick={handleAvancar} 
