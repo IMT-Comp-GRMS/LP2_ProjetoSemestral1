@@ -30,6 +30,8 @@ const App = () => {
   const [responsavel, setResponsavel] = useState('');
   const [prioridade, setPrioridade] = useState(3); // Inicializa com prioridade Baixa (3)
   const [mostrarModal, setMostrarModal] = useState(false);
+const [termoBusca, setTermoBusca] = useState('');
+  const [filtroPrioridade, setFiltroPrioridade] = useState('TODAS');
 
   /* ==========================================================================
      3. DEFINIÇÃO DE ESTILOS INLINE (CSS-in-JS) - IDENTIDADE VELATO
@@ -286,6 +288,40 @@ const App = () => {
         </button>
       </header>
 
+      <div style={{ padding: '0 40px 20px 40px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ fontWeight: '600', color: '#3c5262', fontSize: '14px' }}>
+          Filtrar Pedidos:
+        </div>
+        
+        <input 
+          type="text"
+          placeholder="Buscar por produto ou responsável..."
+          value={termoBusca}
+          onChange={(e) => setTermoBusca(e.target.value)}
+          style={{ ...inputStyle, width: '300px', padding: '8px 12px' }}
+        />
+
+        <select
+          value={filtroPrioridade}
+          onChange={(e) => setFiltroPrioridade(e.target.value)}
+          style={{ ...inputStyle, padding: '8px 12px', cursor: 'pointer' }}
+        >
+          <option value="TODAS">Todas as Prioridades</option>
+          <option value="1"> Alta (Urgente)</option>
+          <option value="2"> Média (Padrão)</option>
+          <option value="3"> Baixa</option>
+        </select>
+        
+        {(termoBusca !== '' || filtroPrioridade !== 'TODAS') && (
+          <button 
+            onClick={() => { setTermoBusca(''); setFiltroPrioridade('TODAS'); }}
+            style={{ background: 'none', border: 'none', color: '#ae4f48', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', textDecoration: 'underline' }}
+          >
+            Limpar Filtros
+          </button>
+        )}
+      </div>
+
       {/* --- BLOCO DO GRID DE COLUNAS (KANBAN) --- */}
       <div style={kanbanContainerStyle}>
         {/* Mapeia o array estrutural de colunas gerando a interface dinamicamente */}
@@ -306,28 +342,30 @@ const App = () => {
               {col.titulo}
             </div>
 
-            {/* Container Dinâmico de Cards. 
-                Garante renderização isolada e barra de rolagem (overflowY) independente. */}
-            <div style={{ 
-              padding: '15px', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '12px',
-              flex: 1,
-              overflowY: 'auto' 
-            }}>
-              {/* O Pipeline de Processamento dos Cards consiste em:
-                  1. Filter: Isola apenas os pedidos pertencentes a coluna atual.
-                  2. Sort: Ordena os cards processando matematicamente o peso de prioridade.
-                  3. Map: Transmuta a linha de dados JSON em um componente visual <CardPedido />. */}
+            {/* Container Dinâmico de Cards. Garante renderização isolada e barra de rolagem (overflowY) independente. */}
+            <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
+              
+              {/* --- O FUNIL DE DADOS ENTRA AQUI --- */}
               {pedidos
                 .filter((pedido) => pedido.status === col.titulo)
+                .filter((pedido) => {
+                  if (termoBusca === '') return true;
+                  const termo = termoBusca.toLowerCase();
+                  return (
+                    pedido.titulo.toLowerCase().includes(termo) ||
+                    pedido.responsavel.toLowerCase().includes(termo)
+                  );
+                })
+                .filter((pedido) => {
+                  if (filtroPrioridade === 'TODAS') return true;
+                  return pedido.prioridade === Number(filtroPrioridade);
+                })
                 .sort((a, b) => a.prioridade - b.prioridade) 
                 .map((pedido) => (
                   <CardPedido key={pedido.id} pedido={pedido} />
                 ))}
-            </div>
 
+            </div>
           </div>
         ))}
       </div>

@@ -38,35 +38,30 @@ app.get('/tarefas', async (req, res) => {
 })
 
 app.post('/tarefas', async (req, res) => {
-    try{
-        // Agora pegamos também o responsavel que vem do frontend
-        const { titulo, descricao, responsavel } = req.body
-        
-        // Definimos que todo pedido novo nasce na primeira coluna ('Pedidos')
-        const statusInicial = 'Pedidos' 
+    try {
+        // 1. Pegamos a prioridade que veio do React (req.body)
+        const { titulo, descricao, responsavel, prioridade } = req.body;
+        const statusInicial = 'Pedidos'; 
 
-        const sql = 
-            'INSERT INTO tarefas'
-            + ' (titulo, descricao, responsavel, status)'
-            + ' VALUES (?, ?, ?, ?)'
-            
-        const [resultado] = 
-            await conexao.query(sql, [titulo, descricao, responsavel, statusInicial])
+        // 2. Adicionamos 'prioridade' no comando SQL
+        const sql = 'INSERT INTO tarefas (titulo, descricao, responsavel, status, prioridade) VALUES (?, ?, ?, ?, ?)';
+        
+        // 3. Passamos o valor da prioridade para preencher o último '?'
+        const [resultado] = await conexao.query(sql, [titulo, descricao, responsavel, statusInicial, prioridade]);
             
         res.status(201).json({
             id: resultado.insertId,
             titulo,
             descricao,
             responsavel,
-            status: statusInicial
-        })
-    } catch(erro){
-        console.error("Erro no POST:", erro);
-        res.status(500).json({
-            erro: 'Erro ao criar tarefa.'
-        })
+            status: statusInicial,
+            prioridade // Devolvemos para o React conferir
+        });
+    } catch(erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao criar pedido.' });
     }
-})
+});
 
 // ==============================================================================
 // ROTA PUT: Atualiza o status de um pedido existente (Mover no Kanban)
