@@ -1,119 +1,200 @@
-const express = require('express') 
-const cors = require('cors')
-const dotenv = require('dotenv').config()
-const app = express()
-const mysql = require('mysql2/promise')
-app.use(cors())
-app.use(express.json())
+/**
+ * ============================================================================
+ * BACKEND VELATO - SISTEMA DE GESTÃO DE PEDIDOS (ERP/KANBAN)
+ * ============================================================================
+ * Este arquivo é o coração do servidor Node.js. Ele gerencia a comunicação
+ * com o banco de dados MySQL estruturado de forma relacional (pedidos, 
+ * produtos e itens_pedido).
+ */
 
-let conexao
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv').config();
+const mysql = require('mysql2/promise');
 
-async function conectar(){
-    conexao = await mysql.createConnection({
-        host: process.env.HOST,
-        user: process.env.USERBD,
-        password: process.env.PASSWORD,
-        database: process.env.DATABASE
-    })
-    console.log('Conectado ao MySQL!')
-}
+const app = express();
 
-conectar()
+// Middlewares: Permitem que o servidor entenda JSON e receba requisições do React
+app.use(cors());
+app.use(express.json());
 
-app.get('/', (req, res) => {
-    res.json({
-        mensagem: 'Servidor funcionando'
-    })
-})
+// Variável global para manter a conexão viva com o banco de dados
+let conexao;
 
-app.get('/tarefas', async (req, res) => {
-    try{
-        const [linhas] = await conexao.query('SELECT * FROM tarefas')
-        res.json(linhas)
-    } catch(erro){
-        res.status(500).json({
-            erro: 'Erro ao buscar tarefas.'
-        })
+/**
+ * ============================================================================
+ * CONEXÃO COM O BANCO DE DADOS
+ * ============================================================================
+ * Estabelece a conexão com o MySQL usando as credenciais do arquivo .env.
+ */
+async function conectar() {
+    try {
+        conexao = await mysql.createConnection({
+            host: process.env.HOST,
+            user: process.env.USERBD,
+            password: process.env.PASSWORD,
+            database: process.env.DATABASE
+        });
+        console.log('✅ Conectado ao MySQL com sucesso!');
+    } catch (erro) {
+        console.error('❌ Erro fatal ao conectar ao MySQL:', erro);
     }
-})
+}
+conectar();
 
+/**
+ * ============================================================================
+ * ROTA DE SAÚDE (HEALTH CHECK)
+ * Rota: GET /
+ * ============================================================================
+ * Verifica se o servidor está no ar.
+ */
+app.get('/', (req, res) => {
+    res.json({ mensagem: 'Servidor da Velato operando normalmente.' });
+});
+
+/**
+ * ============================================================================
+ * ROTA: LISTAR CATÁLOGO DE PRODUTOS
+ * Rota: GET /produtos
+ * ============================================================================
+ * Busca todos os produtos (calças) cadastrados no banco para alimentar
+ * o formulário de "Novo Pedido" no Frontend.
+ */
+app.get('/produtos', async (req, res) => {
+    try {
+        const [produtos] = await conexao.query('SELECT * FROM produtos');
+        res.json(produtos);
+    } catch (erro) {
+        console.error("Erro no /produtos:", erro);
+        res.status(500).json({ erro: 'Erro ao buscar catálogo de produtos.' });
+    }
+});
+
+/**
+ * ============================================================================
+ * ROTA: LER TODOS OS PEDIDOS (COM JOIN)
+ * Rota: GET /tarefas
+ * ============================================================================
+ * Une as tabelas 'pedidos', 'itens_pedido' e 'produtos'.
+ * O GROUP_CONCAT agrupa os nomes das calças em uma única string (ex: "Calça Cargo + Calça Slim")
+ * e chamamos isso de 'titulo' para não quebrar a interface do Frontend atual.
+ */
+app.get('/tarefas', async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                p.id, 
+                p.responsavel, 
+                p.descricao,
+                p.status, 
+                p.prioridade,
+                IFNULL(GROUP_CONCAT(prod.nome SEPARATOR ' + '), 'Pedido Vazio') AS titulo
+            FROM pedidos p
+            LEFT JOIN itens_pedido ip ON p.id = ip.pedido_id
+            LEFT JOIN produtos prod ON ip.produto_id = prod.id
+            GROUP BY p.id
+            ORDER BY p.prioridade ASC, p.id DESC
+        `;
+        const [linhas] = await conexao.query(sql);
+        res.json(linhas);
+    } catch (erro) {
+        console.error("Erro no GET /tarefas:", erro);
+        res.status(500).json({ erro: 'Erro ao buscar a lista de pedidos estruturados.' });
+    }
+});
+
+/**
+ * ============================================================================
+ * ROTA: CRIAR NOVO PEDIDO E SEUS ITENS (TRANSAÇÃO)
+ * Rota: POST /tarefas
+ * ============================================================================
+ * Recebe os dados gerais do pedido e um array numérico 'produtosIds' (ex: [1, 2]).
+ * Salva o cabeçalho na tabela 'pedidos' e os vínculos na 'itens_pedido'.
+ */
 app.post('/tarefas', async (req, res) => {
     try {
-        // 1. Pegamos a prioridade que veio do React (req.body)
-        const { titulo, descricao, responsavel, prioridade } = req.body;
+        const { descricao, responsavel, prioridade, produtosIds } = req.body;
         const statusInicial = 'Pedidos'; 
 
-        // 2. Adicionamos 'prioridade' no comando SQL
-        const sql = 'INSERT INTO tarefas (titulo, descricao, responsavel, status, prioridade) VALUES (?, ?, ?, ?, ?)';
+        // 1. Inserimos apenas as informações de cabeçalho na nova tabela 'pedidos'
+        const sqlPedido = 'INSERT INTO pedidos (responsavel, descricao, status, prioridade) VALUES (?, ?, ?, ?)';
+        const [resultadoPedido] = await conexao.query(sqlPedido, [responsavel, descricao, statusInicial, prioridade]);
         
-        // 3. Passamos o valor da prioridade para preencher o último '?'
-        const [resultado] = await conexao.query(sql, [titulo, descricao, responsavel, statusInicial, prioridade]);
+        const novoPedidoId = resultadoPedido.insertId;
+
+        // 2. Se o React enviar um array de IDs de produtos, vinculamos eles ao pedido recém-criado
+        if (produtosIds && produtosIds.length > 0) {
+            // Transforma o array [1, 2] em [[novoPedidoId, 1], [novoPedidoId, 2]]
+            const itensParaInserir = produtosIds.map(produtoId => [novoPedidoId, produtoId]);
+            const sqlItens = 'INSERT INTO itens_pedido (pedido_id, produto_id) VALUES ?';
             
-        res.status(201).json({
-            id: resultado.insertId,
-            titulo,
-            descricao,
-            responsavel,
-            status: statusInicial,
-            prioridade // Devolvemos para o React conferir
+            await conexao.query(sqlItens, [itensParaInserir]);
+        }
+            
+        res.status(201).json({ 
+            mensagem: 'Pedido e itens criados com sucesso!', 
+            id: novoPedidoId 
         });
-    } catch(erro) {
-        console.error(erro);
-        res.status(500).json({ erro: 'Erro ao criar pedido.' });
+    } catch (erro) {
+        console.error("Erro no POST /tarefas:", erro);
+        res.status(500).json({ erro: 'Erro ao criar o pedido e seus itens.' });
     }
 });
 
-// ==============================================================================
-// ROTA PUT: Atualiza o status de um pedido existente (Mover no Kanban)
-// ==============================================================================
+/**
+ * ============================================================================
+ * ROTA: ATUALIZAR STATUS DO PEDIDO (MOVER NO KANBAN)
+ * Rota: PUT /tarefas/:id
+ * ============================================================================
+ * Atualiza APENAS a coluna 'status' da tabela 'pedidos' (a tabela nova).
+ */
 app.put('/tarefas/:id', async (req, res) => {
-  // 1. Pegamos o ID do pedido que veio na URL (ex: /tarefas/5)
-  const idDoPedido = req.params.id; 
-  
-  // 2. Pegamos o novo status que o frontend nos enviou no corpo da requisição
-  const { status } = req.body; 
+    const idDoPedido = req.params.id; 
+    const { status } = req.body; 
 
-  try {
-    // 3. Comando SQL para atualizar APENAS a coluna 'status' do pedido com este ID
-    const sql = 'UPDATE tarefas SET status = ? WHERE id = ?';
-    
-    const [resultado] = await conexao.execute(sql, [status, idDoPedido]);
+    try {
+        const sql = 'UPDATE pedidos SET status = ? WHERE id = ?';
+        const [resultado] = await conexao.execute(sql, [status, idDoPedido]);
 
-    // Se o banco de dados não encontrou nenhuma linha com esse ID
-    if (resultado.affectedRows === 0) {
-      return res.status(404).json({ erro: 'Pedido não encontrado no banco de dados.' });
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ erro: 'Pedido não encontrado no banco de dados.' });
+        }
+
+        res.status(200).json({ mensagem: 'Status do pedido atualizado com sucesso!' });
+    } catch (erro) {
+        console.error("Erro no PUT /tarefas:", erro);
+        res.status(500).json({ erro: 'Erro interno ao tentar atualizar status.' });
     }
-
-    // Devolve uma resposta de sucesso para o frontend
-    res.status(200).json({ mensagem: 'Status atualizado com sucesso!' });
-    
-  } catch (erro) {
-    console.error("Erro ao atualizar status:", erro);
-    res.status(500).json({ erro: 'Erro interno no servidor ao tentar atualizar.' });
-  }
 });
 
-// ==============================================================================
-// ROTA DELETE: Remove um pedido do banco de dados
-// ==============================================================================
+/**
+ * ============================================================================
+ * ROTA: DELETAR PEDIDO
+ * Rota: DELETE /tarefas/:id
+ * ============================================================================
+ * Exclui o cabeçalho do pedido. Devido ao "ON DELETE CASCADE" configurado 
+ * no banco, os itens vinculados na tabela itens_pedido sumirão automaticamente.
+ */
 app.delete('/tarefas/:id', async (req, res) => {
-  const { id } = req.params;
+    const idDoPedido = req.params.id;
 
-  try {
-    const sql = 'DELETE FROM tarefas WHERE id = ?';
-    const [resultado] = await conexao.query(sql, [id]);
+    try {
+        const sql = 'DELETE FROM pedidos WHERE id = ?';
+        const [resultado] = await conexao.query(sql, [idDoPedido]);
 
-    if (resultado.affectedRows === 0) {
-      return res.status(404).json({ erro: 'Pedido não encontrado.' });
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ erro: 'Pedido não encontrado para exclusão.' });
+        }
+
+        res.status(200).json({ mensagem: 'Pedido excluído com sucesso do sistema!' });
+    } catch (erro) {
+        console.error("Erro no DELETE /tarefas:", erro);
+        res.status(500).json({ erro: 'Erro ao excluir o pedido.' });
     }
-
-    res.status(200).json({ mensagem: 'Pedido excluído com sucesso!' });
-  } catch (erro) {
-    console.error("Erro ao excluir:", erro);
-    res.status(500).json({ erro: 'Erro ao excluir o pedido.' });
-  }
 });
 
+// Inicialização do servidor na porta 3000
 app.listen(3000, () => {
-    console.log('Servidor rodando na porta 3000.')
-})
+    console.log('🚀 Servidor rodando na porta 3000.');
+});

@@ -25,12 +25,13 @@ const App = () => {
 
   // Estados locais: utilizados exclusivamente para o controle do formulário 
   // de criação de pedido e visibilidade do modal.
-  const [titulo, setTitulo] = useState('');
+  const [catalogo, setCatalogo] = useState([]); // Guarda as calças vindas do banco
+  const [produtosSelecionados, setProdutosSelecionados] = useState([]); // Guarda os IDs marcados
   const [descricao, setDescricao] = useState('');
   const [responsavel, setResponsavel] = useState('');
   const [prioridade, setPrioridade] = useState(3); // Inicializa com prioridade Baixa (3)
   const [mostrarModal, setMostrarModal] = useState(false);
-const [termoBusca, setTermoBusca] = useState('');
+  const [termoBusca, setTermoBusca] = useState('');
   const [filtroPrioridade, setFiltroPrioridade] = useState('TODAS');
 
   /* ==========================================================================
@@ -160,17 +161,48 @@ const [termoBusca, setTermoBusca] = useState('');
     }
   };
 
+  const carregarCatalogo = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/produtos');
+      const data = await response.json();
+      setCatalogo(data);
+    } catch (error) {
+      console.error("Erro ao buscar catálogo:", error);
+    }
+  };
+
   // useEffect: Aciona o carregamento inicial dos pedidos assim que o App é montado na tela.
   useEffect(() => {
     carregarPedidos();
+    carregarCatalogo();
   }, []);
+
+  const toggleProduto = (idProduto) => {
+    setProdutosSelecionados(prev => 
+      prev.includes(idProduto) 
+        ? prev.filter(id => id !== idProduto) // Se já tem, tira
+        : [...prev, idProduto] // Se não tem, coloca
+    );
+  };
 
   /**
    * Coleta os dados do formulário local, compila o payload e envia via POST
    * para o servidor persistir um novo pedido no banco de dados.
    */
   const handleCriarPedido = async () => {
-    const novoPedido = { titulo, descricao, responsavel, prioridade };
+    // 1. Trava de segurança: não deixa enviar sem escolher a calça
+    if (produtosSelecionados.length === 0) {
+      alert("Por favor, selecione pelo menos um produto para o pedido.");
+      return;
+    }
+
+    // 2. Montamos o pacote com o array de IDs
+    const novoPedido = { 
+      descricao, 
+      responsavel,
+      prioridade,
+      produtosIds: produtosSelecionados // NOVIDADE AQUI!
+    };
 
     try {
         const response = await fetch('http://localhost:3000/tarefas', {
@@ -180,18 +212,13 @@ const [termoBusca, setTermoBusca] = useState('');
         });
 
         if (response.ok) {
-          // Limpeza dos estados locais após sucesso na operação.
           setMostrarModal(false);
-          setTitulo(''); 
-          setDescricao(''); 
-          setResponsavel(''); 
-          setPrioridade(3);
-          
-          // Sincroniza o Frontend com a nova versão do banco.
-          carregarPedidos();
+          // Limpamos tudo após o sucesso, incluindo os checkboxes
+          setDescricao(''); setResponsavel(''); setPrioridade(3); setProdutosSelecionados([]);
+          carregarPedidos(); 
         }
     } catch (error) {
-        console.error("Falha na comunicação com a API ao criar pedido:", error);
+        console.error("Erro ao conectar:", error);
         alert("Não foi possível conectar ao servidor.");
     }
   };
@@ -209,12 +236,26 @@ const [termoBusca, setTermoBusca] = useState('');
           <div style={modalContentStyle}>
             <h3 style={{ margin: '0 0 10px 0' }}>Novo Pedido - Velato</h3>
             
-            <input 
-              placeholder="Título do Pedido (Ex: Calça Jeans Slim)" 
-              value={titulo} 
-              onChange={(e) => setTitulo(e.target.value)} 
-              style={inputStyle}
-            />
+            {/* --- LISTA DE PRODUTOS (CHECKBOXES) --- */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #a79261', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#3c5262' }}>SELECIONE OS PRODUTOS:</label>
+              
+              {catalogo.length === 0 ? (
+                <span style={{ fontSize: '13px', color: '#9CA3AF' }}>Carregando catálogo...</span>
+              ) : (
+                catalogo.map(produto => (
+                  <label key={produto.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', color: '#252623' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={produtosSelecionados.includes(produto.id)}
+                      onChange={() => toggleProduto(produto.id)}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    {produto.nome} <span style={{ color: '#a79261', fontWeight: 'bold' }}>(R$ {produto.preco})</span>
+                  </label>
+                ))
+              )}
+            </div>
             
             <textarea 
               placeholder="Descrição detalhada" 
