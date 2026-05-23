@@ -127,6 +127,10 @@ const CardPedido = ({ pedido }) => {
       </button>
 
       {/* 2. CONTEÚDO DO CARD */}
+      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#071227' }}>
+        ID: {pedido.id}
+      </div>
+
       <div style={{ fontWeight: '700', fontSize: '14px', paddingRight: '20px' }}>
         {pedido.titulo}
       </div>
@@ -138,6 +142,7 @@ const CardPedido = ({ pedido }) => {
       <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#a79261' }}>
         Ref: {pedido.responsavel}
       </div>
+
 
       {/* 3. BOTÕES DE NAVEGAÇÃO NO RODAPÉ DO CARD */}
       <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
