@@ -171,7 +171,7 @@ const App = () => {
    */
   const carregarPedidos = async () => {
     try {
-      const response = await fetch('http://localhost:3001/tarefas');
+      const response = await fetch('http://localhost:3000/tarefas');
       const data = await response.json();
       dispatch(salvarPedidosNoCofre(data));
     } catch (error) {
@@ -254,7 +254,7 @@ const App = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:3001/tarefas', {
+      const response = await fetch('http://localhost:3000/tarefas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novoPedido)

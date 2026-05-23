@@ -11,6 +11,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv').config();
 const mysql = require('mysql2/promise');
+const axios = require('axios');
 
 const app = express();
 
@@ -149,24 +150,34 @@ app.post('/tarefas', async (req, res) => {
  * ============================================================================
  * Atualiza APENAS a coluna 'status' da tabela 'pedidos' (a tabela nova).
  */
-app.put('/tarefas/:id', async (req, res) => {
-    const idDoPedido = req.params.id; 
-    const { status } = req.body; 
+    app.put('/tarefas/:id', async (req, res) => {
+        const idDoPedido = req.params.id;
+        const { status, status_anterior } = req.body;
 
-    try {
-        const sql = 'UPDATE pedidos SET status = ? WHERE id = ?';
-        const [resultado] = await conexao.execute(sql, [status, idDoPedido]);
+        try {
+            const sql = 'UPDATE pedidos SET status = ? WHERE id = ?';
+            const [resultado] = await conexao.execute(sql, [status, idDoPedido]);
 
-        if (resultado.affectedRows === 0) {
-            return res.status(404).json({ erro: 'Pedido não encontrado no banco de dados.' });
+            if (resultado.affectedRows === 0) {
+                return res.status(404).json({ erro: 'Pedido não encontrado no banco de dados.' });
+            }
+
+            // Publica o evento no barramento para registrar no histórico
+            await axios.post('http://localhost:10000/eventos', {
+                tipo: 'PedidoMovido',
+                dados: {
+                    pedido_id: idDoPedido,
+                    status_anterior: status_anterior,
+                    status_novo: status
+                }
+            }).catch(err => console.log('Barramento fora do ar:', err.message));
+
+            res.status(200).json({ mensagem: 'Status do pedido atualizado com sucesso!' });
+        } catch (erro) {
+            console.error("Erro no PUT /tarefas:", erro);
+            res.status(500).json({ erro: 'Erro interno ao tentar atualizar status.' });
         }
-
-        res.status(200).json({ mensagem: 'Status do pedido atualizado com sucesso!' });
-    } catch (erro) {
-        console.error("Erro no PUT /tarefas:", erro);
-        res.status(500).json({ erro: 'Erro interno ao tentar atualizar status.' });
-    }
-});
+    });
 
 /**
  * ============================================================================

@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { salvarPedidosNoCofre } from './store/pedidosSlice';
 
 const CardPedido = ({ pedido }) => {
   const dispatch = useDispatch();
+
+  // Estado para controlar a visibilidade e os dados do histórico
+  const [historico, setHistorico] = useState([]);
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
 
   // 1. Definição da ordem das colunas (Igual ao que está no App.jsx)
   const ordemColunas = [
@@ -20,7 +25,8 @@ const CardPedido = ({ pedido }) => {
       const response = await fetch(`http://localhost:3000/tarefas/${pedido.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: novoStatus })
+        // Envia também o status_anterior para o histórico
+        body: JSON.stringify({ status: novoStatus, status_anterior: pedido.status })
       });
 
       if (response.ok) {
@@ -34,7 +40,33 @@ const CardPedido = ({ pedido }) => {
     }
   };
 
-  // 3. Lógica dos botões
+  // 3. Função para buscar o histórico do pedido
+  const handleVerHistorico = async () => {
+    // Se já está aberto, fecha
+    if (mostrarHistorico) {
+      setMostrarHistorico(false);
+      return;
+    }
+
+    setCarregandoHistorico(true);
+    try {
+      const response = await fetch(`http://localhost:5001/historico/${pedido.id}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setHistorico(data);
+      } else {
+        setHistorico([]);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar histórico:", error);
+      setHistorico([]);
+    }
+    setCarregandoHistorico(false);
+    setMostrarHistorico(true);
+  };
+
+  // 4. Lógica dos botões
   const indexAtual = ordemColunas.indexOf(pedido.status);
 
   const handleAvancar = () => {
@@ -69,7 +101,7 @@ const CardPedido = ({ pedido }) => {
     }
   };
 
-  // 4. Estilos Minimalistas Velato
+  // 5. Estilos Minimalistas Velato
   // Mapeamento de cores da Velato para prioridades
   const coresPrioridade = {
     1: '#ae4f48', // Alta - Vermelho
@@ -118,7 +150,7 @@ const CardPedido = ({ pedido }) => {
           border: 'none',
           cursor: 'pointer',
           fontSize: '16px',
-          color: '#ae4f48', // Vermelho Velato
+          color: '#ae4f48',
           zIndex: 10
         }}
         title="Excluir Pedido"
@@ -140,9 +172,8 @@ const CardPedido = ({ pedido }) => {
       </div>
       
       <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#a79261' }}>
-        Ref: {pedido.responsavel}
+        Responsável: {pedido.responsavel}
       </div>
-
 
       {/* 3. BOTÕES DE NAVEGAÇÃO NO RODAPÉ DO CARD */}
       <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
@@ -159,6 +190,50 @@ const CardPedido = ({ pedido }) => {
           </button>
         )}
       </div>
+
+      {/* 4. BOTÃO VER HISTÓRICO */}
+      <button
+        onClick={handleVerHistorico}
+        style={{
+          ...botaoStyle,
+          backgroundColor: mostrarHistorico ? '#a79261' : 'transparent',
+          color: mostrarHistorico ? '#f6f0e7' : '#a79261',
+          border: '1px solid #a79261',
+          width: '100%'
+        }}
+      >
+        {carregandoHistorico ? 'Carregando...' : mostrarHistorico ? '▲ Fechar Histórico' : '📋 Ver Histórico'}
+      </button>
+
+      {/* 5. TABELA DE HISTÓRICO */}
+      {mostrarHistorico && (
+        <div style={{ marginTop: '5px' }}>
+          {historico.length === 0 ? (
+            <p style={{ fontSize: '12px', color: '#9CA3AF', textAlign: 'center' }}>
+              Nenhuma movimentação registrada.
+            </p>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f6f0e7' }}>
+                  <th style={{ padding: '5px', textAlign: 'left', borderBottom: '1px solid #E5E7EB', color: '#3c5262' }}>De</th>
+                  <th style={{ padding: '5px', textAlign: 'left', borderBottom: '1px solid #E5E7EB', color: '#3c5262' }}>Para</th>
+                  <th style={{ padding: '5px', textAlign: 'left', borderBottom: '1px solid #E5E7EB', color: '#3c5262' }}>Data/Hora</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historico.map((linha) => (
+                  <tr key={linha.id} style={{ borderBottom: '1px solid #f6f0e7' }}>
+                    <td style={{ padding: '5px', color: '#ae4f48' }}>{linha.status_anterior || '—'}</td>
+                    <td style={{ padding: '5px', color: '#3c5262' }}>{linha.status_novo}</td>
+                    <td style={{ padding: '5px', color: '#6B7280' }}>{linha.data_hora}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   );
 };

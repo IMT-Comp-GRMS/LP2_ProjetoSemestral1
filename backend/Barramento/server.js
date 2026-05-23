@@ -8,16 +8,15 @@ app.post('/eventos', (req, res) => {
     //envia o evento para o microsserviço de criar pedido (vem do configurar pedido)
     axios.post('http://localhost:3000/eventos', evento)
     .catch((err) => {
-        console.log('Microsserviço de lembretes fora do ar.')
+        console.log('Microsserviço de produtos fora do ar.')
     })
     axios.post('http://localhost:3001/eventos', evento)
     .catch((err) => {
-        console.log('Microsserviço de observações fora do ar.')
+        console.log('Microsserviço de pedidos fora do ar.')
     })
-    //envia o evento para o microsserviço de dashboard (vem de criar pedido)
-    axios.post('http://localhost:6000/eventos', evento)
+    axios.post('http://localhost:5001/eventos', evento)
     .catch((err) => {
-        console.log('Microsserviço de consulta fora do ar.')
+        console.log('Microsserviço de Histórico fora do ar.')
     })
     res.status(200).send({msg: 'ok'})
 })
