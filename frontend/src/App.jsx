@@ -19,11 +19,11 @@ const App = () => {
      2. INICIALIZAÇÃO DE ESTADOS (REDUX E REACT HOOKS)
      ========================================================================== */
   const dispatch = useDispatch();
-  
+
   // Acesso ao estado global: extrai a lista de pedidos gerenciada pelo Redux.
   const pedidos = useSelector((state) => state.pedidos.lista);
 
-  // Estados locais: utilizados exclusivamente para o controle do formulário 
+  // Estados locais: utilizados exclusivamente para o controle do formulário
   // de criação de pedido e visibilidade do modal.
   const [catalogo, setCatalogo] = useState([]); // Guarda as calças vindas do banco
   const [produtosSelecionados, setProdutosSelecionados] = useState([]); // Guarda os IDs marcados
@@ -33,13 +33,16 @@ const App = () => {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
   const [filtroPrioridade, setFiltroPrioridade] = useState('TODAS');
+  const [mostrarModalProduto, setMostrarModalProduto] = useState(false);
+  const [nomeProduto, setNomeProduto] = useState('');
+  const [precoProduto, setPrecoProduto] = useState('');
 
   /* ==========================================================================
      3. DEFINIÇÃO DE ESTILOS INLINE (CSS-in-JS) - IDENTIDADE VELATO
      ========================================================================== */
   // Container master que engloba toda a aplicação.
   const containerStyle = {
-    backgroundColor: '#f6f0e7', 
+    backgroundColor: '#f6f0e7',
     fontFamily: "'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif",
     minHeight: '100vh',
     display: 'flex',
@@ -90,22 +93,22 @@ const App = () => {
   };
 
   // Container que abriga o grid do Kanban, permitindo rolagem horizontal caso necessário.
-  const kanbanContainerStyle = { 
-    display: 'flex', 
-    gap: '24px', 
-    width: '100%', 
+  const kanbanContainerStyle = {
+    display: 'flex',
+    gap: '24px',
+    width: '100%',
     padding: '0 40px 40px 40px',
     boxSizing: 'border-box',
     overflowX: 'auto'
   };
 
   // Container estrutural de cada coluna do Kanban. Define altura fixa para habilitar o scroll.
-  const colunaStyle = { 
+  const colunaStyle = {
     backgroundColor: '#ffffff',
-    flex: 1, 
-    minWidth: '260px', 
+    flex: 1,
+    minWidth: '260px',
     height: '75vh', // Limita a altura da coluna em 75% da janela
-    borderRadius: '6px', 
+    borderRadius: '6px',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
@@ -161,14 +164,14 @@ const App = () => {
   /* ==========================================================================
      4. INTEGRAÇÃO COM A API E LÓGICA DE NEGÓCIO
      ========================================================================== */
-  
+
   /**
    * Executa uma requisição GET ao Backend para obter a lista atualizada
    * de pedidos e os insere no estado global (Redux).
    */
   const carregarPedidos = async () => {
     try {
-      const response = await fetch('http://localhost:3000/tarefas');
+      const response = await fetch('http://localhost:3001/tarefas');
       const data = await response.json();
       dispatch(salvarPedidosNoCofre(data));
     } catch (error) {
@@ -178,7 +181,7 @@ const App = () => {
 
   const carregarCatalogo = async () => {
     try {
-      const response = await fetch('http://localhost:3000/produtos');
+      const response = await fetch('http://localhost:3001/produtos');
       const data = await response.json();
       setCatalogo(data);
     } catch (error) {
@@ -193,11 +196,42 @@ const App = () => {
   }, []);
 
   const toggleProduto = (idProduto) => {
-    setProdutosSelecionados(prev => 
-      prev.includes(idProduto) 
+    setProdutosSelecionados(prev =>
+      prev.includes(idProduto)
         ? prev.filter(id => id !== idProduto) // Se já tem, tira
         : [...prev, idProduto] // Se não tem, coloca
     );
+  };
+
+  /**
+   * Coleta os dados do formulário de produto e envia via POST
+   * para o servidor persistir um novo produto no banco de dados.
+   */
+  const handleCriarProduto = async () => {
+    if (!nomeProduto || !precoProduto) {
+      alert("Preencha o nome e o preço do produto.");
+      return;
+    }
+
+    const novoProduto = { nome: nomeProduto, preco: parseFloat(precoProduto) };
+
+    try {
+      const response = await fetch('http://localhost:3001/produtos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(novoProduto)
+      });
+
+      if (response.ok) {
+        setMostrarModalProduto(false);
+        setNomeProduto('');
+        setPrecoProduto('');
+        carregarCatalogo(); // Atualiza o catálogo no modal de pedidos
+      }
+    } catch (error) {
+      console.error("Erro ao criar produto:", error);
+      alert("Não foi possível conectar ao servidor.");
+    }
   };
 
   /**
@@ -212,29 +246,29 @@ const App = () => {
     }
 
     // 2. Montamos o pacote com o array de IDs
-    const novoPedido = { 
-      descricao, 
+    const novoPedido = {
+      descricao,
       responsavel,
       prioridade,
       produtosIds: produtosSelecionados // NOVIDADE AQUI!
     };
 
     try {
-        const response = await fetch('http://localhost:3000/tarefas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(novoPedido)
-        });
+      const response = await fetch('http://localhost:3001/tarefas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(novoPedido)
+      });
 
-        if (response.ok) {
-          setMostrarModal(false);
-          // Limpamos tudo após o sucesso, incluindo os checkboxes
-          setDescricao(''); setResponsavel(''); setPrioridade(3); setProdutosSelecionados([]);
-          carregarPedidos(); 
-        }
+      if (response.ok) {
+        setMostrarModal(false);
+        // Limpamos tudo após o sucesso, incluindo os checkboxes
+        setDescricao(''); setResponsavel(''); setPrioridade(3); setProdutosSelecionados([]);
+        carregarPedidos();
+      }
     } catch (error) {
-        console.error("Erro ao conectar:", error);
-        alert("Não foi possível conectar ao servidor.");
+      console.error("Erro ao conectar:", error);
+      alert("Não foi possível conectar ao servidor.");
     }
   };
 
@@ -243,25 +277,25 @@ const App = () => {
      ========================================================================== */
   return (
     <div style={containerStyle}>
-      
-      {/* --- BLOCO DO MODAL DE CRIAÇÃO --- */}
+
+      {/* --- BLOCO DO MODAL DE CRIAÇÃO DE PEDIDO --- */}
       {/* A renderização condicional baseia-se no estado boolean 'mostrarModal' */}
       {mostrarModal && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
             <h3 style={{ margin: '0 0 10px 0' }}>Novo Pedido - Velato</h3>
-            
+
             {/* --- LISTA DE PRODUTOS (CHECKBOXES) --- */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #a79261', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #a79261', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff', maxHeight: '180px', overflowY: 'auto' }}>
               <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#3c5262' }}>SELECIONE OS PRODUTOS:</label>
-              
+
               {catalogo.length === 0 ? (
                 <span style={{ fontSize: '13px', color: '#9CA3AF' }}>Carregando catálogo...</span>
               ) : (
                 catalogo.map(produto => (
                   <label key={produto.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', color: '#252623' }}>
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={produtosSelecionados.includes(produto.id)}
                       onChange={() => toggleProduto(produto.id)}
                       style={{ cursor: 'pointer', width: '16px', height: '16px' }}
@@ -271,27 +305,27 @@ const App = () => {
                 ))
               )}
             </div>
-            
-            <textarea 
-              placeholder="Descrição detalhada" 
-              value={descricao} 
-              onChange={(e) => setDescricao(e.target.value)} 
+
+            <textarea
+              placeholder="Descrição detalhada"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
               style={{ ...inputStyle, minHeight: '80px', resize: 'none' }}
             />
-            
-            <input 
-              placeholder="Responsável" 
-              value={responsavel} 
-              onChange={(e) => setResponsavel(e.target.value)} 
+
+            <input
+              placeholder="Responsável"
+              value={responsavel}
+              onChange={(e) => setResponsavel(e.target.value)}
               style={inputStyle}
             />
-            
+
             {/* Componente de seleção de prioridade numérica */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
               <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#3c5262' }}>PRIORIDADE:</label>
-              <select 
-                value={prioridade} 
-                onChange={(e) => setPrioridade(Number(e.target.value))} 
+              <select
+                value={prioridade}
+                onChange={(e) => setPrioridade(Number(e.target.value))}
                 style={{ ...inputStyle, cursor: 'pointer' }}
               >
                 <option value={1}>🔴 Alta (Urgente)</option>
@@ -299,30 +333,63 @@ const App = () => {
                 <option value={3}>🔵 Baixa (Opcional)</option>
               </select>
             </div>
-            
+
             {/* Controles de submissão do formulário */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button 
+              <button
                 onClick={handleCriarPedido}
                 style={{ ...botãoCriarPedido, flex: 1, justifyContent: 'center' }}
               >
                 Salvar
               </button>
-              <button 
+              <button
                 onClick={() => setMostrarModal(false)}
-                style={{ 
-                  flex: 1, 
-                  backgroundColor: 'transparent', 
-                  border: '1px solid #E5E7EB', 
-                  cursor: 'pointer',
-                  borderRadius: '4px',
-                  fontWeight: '600'
-                }}
+                style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid #E5E7EB', cursor: 'pointer', borderRadius: '4px', fontWeight: '600' }}
               >
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* --- BLOCO DO MODAL DE CONFIGURAÇÃO DE PRODUTO --- */}
+      {/* A renderização condicional baseia-se no estado boolean 'mostrarModalProduto' */}
+      {mostrarModalProduto && (
+        <div style={modalOverlayStyle}>
+          <div style={{ ...modalContentStyle, width: '320px' }}>
+            <h3 style={{ margin: '0 0 10px 0' }}>Configurar Produto</h3>
+
+            <input
+              placeholder="Nome do produto"
+              value={nomeProduto}
+              onChange={(e) => setNomeProduto(e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="Preço (ex: 199.90)"
+              type="number"
+              value={precoProduto}
+              onChange={(e) => setPrecoProduto(e.target.value)}
+              style={inputStyle}
+            />
+
+            {/* Controles de submissão do formulário de produto */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={handleCriarProduto}
+                style={{ ...botãoCriarPedido, flex: 1, justifyContent: 'center' }}
+              >
+                Adicionar
+              </button>
+              <button
+                onClick={() => setMostrarModalProduto(false)}
+                style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid #E5E7EB', cursor: 'pointer', borderRadius: '4px', fontWeight: '600' }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -337,25 +404,27 @@ const App = () => {
             Orders
           </span>
         </div>
-        
-        {/* Aciona a visibilidade do formulário de criação */}
-        // tem que trocar a função pra onde vai
-        <button style={botãoConfigurarProduto} onClick={() => setMostrarModal(true)}>
-          <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Configurar Produto
-        </button>
 
-        {/* Aciona a visibilidade do formulário de criação */}
-        <button style={botãoCriarPedido} onClick={() => setMostrarModal(true)}>
-          <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Novo Pedido
-        </button>
+        {/* Botões de ação do cabeçalho */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {/* Aciona a visibilidade do formulário de configuração de produto */}
+          <button style={botãoConfigurarProduto} onClick={() => setMostrarModalProduto(true)}>
+            <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Configurar Produto
+          </button>
+
+          {/* Aciona a visibilidade do formulário de criação de pedido */}
+          <button style={botãoCriarPedido} onClick={() => setMostrarModal(true)}>
+            <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Novo Pedido
+          </button>
+        </div>
       </header>
 
       <div style={{ padding: '0 40px 20px 40px', display: 'flex', gap: '15px', alignItems: 'center' }}>
         <div style={{ fontWeight: '600', color: '#3c5262', fontSize: '14px' }}>
           Filtrar Pedidos:
         </div>
-        
-        <input 
+
+        <input
           type="text"
           placeholder="Buscar por produto ou responsável..."
           value={termoBusca}
@@ -373,9 +442,9 @@ const App = () => {
           <option value="2"> Média (Padrão)</option>
           <option value="3"> Baixa</option>
         </select>
-        
+
         {(termoBusca !== '' || filtroPrioridade !== 'TODAS') && (
-          <button 
+          <button
             onClick={() => { setTermoBusca(''); setFiltroPrioridade('TODAS'); }}
             style={{ background: 'none', border: 'none', color: '#ae4f48', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', textDecoration: 'underline' }}
           >
@@ -389,16 +458,16 @@ const App = () => {
         {/* Mapeia o array estrutural de colunas gerando a interface dinamicamente */}
         {colunas.map((col, index) => (
           <div key={index} style={colunaStyle}>
-            
+
             {/* Título Fixo da Coluna */}
-            <div style={{ 
-              padding: '15px', 
-              textAlign: 'center', 
-              fontWeight: '700', 
+            <div style={{
+              padding: '15px',
+              textAlign: 'center',
+              fontWeight: '700',
               fontSize: '12px',
               textTransform: 'uppercase',
               letterSpacing: '1px',
-              backgroundColor: col.cor, 
+              backgroundColor: col.cor,
               color: '#FFFFFF'
             }}>
               {col.titulo}
@@ -406,7 +475,7 @@ const App = () => {
 
             {/* Container Dinâmico de Cards. Garante renderização isolada e barra de rolagem (overflowY) independente. */}
             <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
-              
+
               {/* --- O FUNIL DE DADOS ENTRA AQUI --- */}
               {pedidos
                 .filter((pedido) => pedido.status === col.titulo)
@@ -422,7 +491,7 @@ const App = () => {
                   if (filtroPrioridade === 'TODAS') return true;
                   return pedido.prioridade === Number(filtroPrioridade);
                 })
-                .sort((a, b) => a.prioridade - b.prioridade) 
+                .sort((a, b) => a.prioridade - b.prioridade)
                 .map((pedido) => (
                   <CardPedido key={pedido.id} pedido={pedido} />
                 ))}

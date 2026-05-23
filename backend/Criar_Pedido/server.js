@@ -195,14 +195,22 @@ app.delete('/tarefas/:id', async (req, res) => {
 });
 
 
-app.post('/eventos', (req, res) => {
-    try{
-        // tem que criar a função funcoes
-        funcoes[req.body.tipo](req.body.dados)
-    } catch(err){}
-    res.status(200).send({msg: 'ok'})
-})
+app.post('/eventos', async (req, res) => {
+    const { tipo, dados } = req.body;
 
-app.listen(7001, () => {
-    console.log('Classificação. Porta 7001')
+    if (tipo === 'ProdutoCriado') {
+        try {
+            const sql = 'INSERT INTO produtos (nome, preco) VALUES (?, ?)';
+            await conexao.query(sql, [dados.nome, dados.preco]);
+            console.log(`✅ Produto "${dados.nome}" espelhado no banco principal.`);
+        } catch (erro) {
+            console.error('Erro ao espelhar produto:', erro);
+        }
+    }
+
+    res.status(200).send({ msg: 'ok' });
+});
+
+app.listen(3000, () => {
+    console.log('Classificação. Porta 3000')
 })
