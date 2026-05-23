@@ -74,6 +74,21 @@ const App = () => {
     gap: '8px'
   };
 
+  const botãoConfigurarProduto = {
+    padding: '10px 24px',
+    backgroundColor: '#2e1172',
+    color: '#f6f0e7',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '14px',
+    transition: 'opacity 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  };
+
   // Container que abriga o grid do Kanban, permitindo rolagem horizontal caso necessário.
   const kanbanContainerStyle = { 
     display: 'flex', 
@@ -323,6 +338,12 @@ const App = () => {
           </span>
         </div>
         
+        {/* Aciona a visibilidade do formulário de criação */}
+        // tem que trocar a função pra onde vai
+        <button style={botãoConfigurarProduto} onClick={() => setMostrarModal(true)}>
+          <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Configurar Produto
+        </button>
+
         {/* Aciona a visibilidade do formulário de criação */}
         <button style={botãoCriarPedido} onClick={() => setMostrarModal(true)}>
           <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Novo Pedido
