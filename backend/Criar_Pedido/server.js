@@ -194,7 +194,15 @@ app.delete('/tarefas/:id', async (req, res) => {
     }
 });
 
-// Inicialização do servidor na porta 3000
-app.listen(3000, () => {
-    console.log('🚀 Servidor rodando na porta 3000.');
-});
+
+app.post('/eventos', (req, res) => {
+    try{
+        // tem que criar a função funcoes
+        funcoes[req.body.tipo](req.body.dados)
+    } catch(err){}
+    res.status(200).send({msg: 'ok'})
+})
+
+app.listen(7001, () => {
+    console.log('Classificação. Porta 7001')
+})
