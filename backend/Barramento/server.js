@@ -19,6 +19,11 @@ app.post('/eventos', (req, res) => {
         console.log('Microsserviço de Histórico fora do ar.')
     })
     res.status(200).send({msg: 'ok'})
+
+    axios.post('http://localhost:4000/eventos', evento)
+    .catch((err) => {
+        console.log('Microsserviço Dashboard fora do ar.')
+    })
 })
 
 app.listen(10000, () => {

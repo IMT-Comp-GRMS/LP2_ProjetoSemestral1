@@ -133,6 +133,17 @@ app.post('/tarefas', async (req, res) => {
             await conexao.query(sqlItens, [itensParaInserir]);
         }
             
+         await axios.post('http://localhost:10000/eventos', {
+            tipo: 'PedidoCriado',
+            dados: {
+                id: novoPedidoId,
+                responsavel,
+                status: statusInicial,
+                prioridade,
+                produtosIds: produtosIds ?? []
+            }
+        }).catch(err => console.log('Barramento fora do ar:', err.message));
+        
         res.status(201).json({ 
             mensagem: 'Pedido e itens criados com sucesso!', 
             id: novoPedidoId 
