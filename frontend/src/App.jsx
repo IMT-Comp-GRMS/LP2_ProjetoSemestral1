@@ -286,7 +286,7 @@ const App = () => {
             <h3 style={{ margin: '0 0 10px 0' }}>Novo Pedido - Velato</h3>
 
             {/* --- LISTA DE PRODUTOS (CHECKBOXES) --- */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #a79261', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff', maxHeight: '180px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #a79261', padding: '12px', borderRadius: '4px', backgroundColor: '#ffffff', maxHeight: '180px', overflowY: 'auto' }}>
               <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#3c5262' }}>SELECIONE OS PRODUTOS:</label>
 
               {catalogo.length === 0 ? (
@@ -407,6 +407,27 @@ const App = () => {
 
         {/* Botões de ação do cabeçalho */}
         <div style={{ display: 'flex', gap: '12px' }}>
+
+          {/* Navega para o frontend do Dashboard */}
+          <button
+            style={{
+              padding: '10px 24px',
+              backgroundColor: 'transparent',
+              color: '#3c5262',
+              border: '2px solid #3c5262',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onClick={() => window.location.href = 'http://localhost:5174'}
+          >
+            📊 Ir para o Dashboard
+          </button>
+
           {/* Aciona a visibilidade do formulário de configuração de produto */}
           <button style={botãoConfigurarProduto} onClick={() => setMostrarModalProduto(true)}>
             <span style={{ fontSize: '18px', fontWeight: '400' }}>+</span> Configurar Produto
