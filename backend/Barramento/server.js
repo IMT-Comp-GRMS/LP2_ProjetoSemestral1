@@ -10,10 +10,7 @@ app.post('/eventos', (req, res) => {
     .catch((err) => {
         console.log('Microsserviço de produtos fora do ar.')
     })
-    axios.post('http://localhost:3001/eventos', evento)
-    .catch((err) => {
-        console.log('Microsserviço de pedidos fora do ar.')
-    })
+  
     axios.post('http://localhost:5001/eventos', evento)
     .catch((err) => {
         console.log('Microsserviço de Histórico fora do ar.')

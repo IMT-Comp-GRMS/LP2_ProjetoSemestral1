@@ -79,13 +79,13 @@ app.get('/dashboard/kpis', async (req, res) => {
 
                 (SELECT COUNT(*)
                  FROM pedidos
-                 WHERE status = 'Entregue'
+                 WHERE status = 'Pedido Entregue'
                    AND DATE(data_entrega) = CURDATE())                  AS entreguesHoje,
 
                 (SELECT COUNT(*)
                  FROM pedidos
                  WHERE prioridade = 1
-                   AND status != 'Entregue')                            AS urgentesAberto,
+                   AND status != 'Pedido Entregue')                            AS urgentesAberto,
 
                 (SELECT COUNT(*)
                  FROM produtos)                                         AS totalProdutos
@@ -125,14 +125,14 @@ app.get('/dashboard/volume-diario', async (_req, res) => {
     try {
         // 1. Busca contagem agrupada por dia nos últimos 7 dias
         const sql = `
-            SELECT
-                DATE_FORMAT(data_criacao, '%d/%m') AS data,
-                COUNT(*)                           AS pedidos
-            FROM pedidos
-            WHERE data_criacao >= CURDATE() - INTERVAL 6 DAY
-            GROUP BY DATE(data_criacao)
-            ORDER BY DATE(data_criacao) ASC
-        `;
+        SELECT
+            DATE_FORMAT(MIN(data_criacao), '%d/%m') AS data,
+            COUNT(*)                                AS pedidos
+        FROM pedidos
+        WHERE data_criacao >= CURDATE() - INTERVAL 6 DAY
+        GROUP BY DATE(data_criacao)
+        ORDER BY DATE(data_criacao) ASC
+    `;
         const [linhas] = await conexao.query(sql);
 
         // 2. Monta mapa { 'DD/MM': N } com o que veio do banco
@@ -269,7 +269,7 @@ app.post('/eventos', async (req, res) => {
         // PedidoMovido — atualiza status; registra data de entrega se aplicável
         // ------------------------------------------------------------------
         else if (tipo === 'PedidoMovido') {
-            const entregue = dados.status_novo === 'Entregue';
+            const entregue = dados.status_novo === 'Pedido Entregue';
 
             const sql = entregue
                 ? 'UPDATE pedidos SET status = ?, data_entrega = NOW() WHERE id = ?'
@@ -278,6 +278,12 @@ app.post('/eventos', async (req, res) => {
             await conexao.query(sql, [dados.status_novo, dados.pedido_id]);
             console.log(`🔄 Pedido ${dados.pedido_id}: "${dados.status_anterior}" → "${dados.status_novo}"`);
         }
+
+        else if (tipo === 'PedidoDeletado') {
+            await conexao.query('DELETE FROM pedidos WHERE id = ?', [dados.pedido_id]);
+            console.log(`🗑️ Pedido ${dados.pedido_id} removido do dashboard.`);
+        }
+
 
     } catch (erro) {
         console.error(`❌ Erro ao processar evento "${tipo}":`, erro);

@@ -132,8 +132,9 @@ app.post('/tarefas', async (req, res) => {
             
             await conexao.query(sqlItens, [itensParaInserir]);
         }
-            
-         await axios.post('http://localhost:10000/eventos', {
+
+        // 3. Publica o evento no barramento para o dashboard
+        await axios.post('http://localhost:10000/eventos', {
             tipo: 'PedidoCriado',
             dados: {
                 id: novoPedidoId,
@@ -143,7 +144,7 @@ app.post('/tarefas', async (req, res) => {
                 produtosIds: produtosIds ?? []
             }
         }).catch(err => console.log('Barramento fora do ar:', err.message));
-        
+            
         res.status(201).json({ 
             mensagem: 'Pedido e itens criados com sucesso!', 
             id: novoPedidoId 
@@ -161,34 +162,34 @@ app.post('/tarefas', async (req, res) => {
  * ============================================================================
  * Atualiza APENAS a coluna 'status' da tabela 'pedidos' (a tabela nova).
  */
-    app.put('/tarefas/:id', async (req, res) => {
-        const idDoPedido = req.params.id;
-        const { status, status_anterior } = req.body;
+app.put('/tarefas/:id', async (req, res) => {
+    const idDoPedido = req.params.id;
+    const { status, status_anterior } = req.body;
 
-        try {
-            const sql = 'UPDATE pedidos SET status = ? WHERE id = ?';
-            const [resultado] = await conexao.execute(sql, [status, idDoPedido]);
+    try {
+        const sql = 'UPDATE pedidos SET status = ? WHERE id = ?';
+        const [resultado] = await conexao.execute(sql, [status, idDoPedido]);
 
-            if (resultado.affectedRows === 0) {
-                return res.status(404).json({ erro: 'Pedido não encontrado no banco de dados.' });
-            }
-
-            // Publica o evento no barramento para registrar no histórico
-            await axios.post('http://localhost:10000/eventos', {
-                tipo: 'PedidoMovido',
-                dados: {
-                    pedido_id: idDoPedido,
-                    status_anterior: status_anterior,
-                    status_novo: status
-                }
-            }).catch(err => console.log('Barramento fora do ar:', err.message));
-
-            res.status(200).json({ mensagem: 'Status do pedido atualizado com sucesso!' });
-        } catch (erro) {
-            console.error("Erro no PUT /tarefas:", erro);
-            res.status(500).json({ erro: 'Erro interno ao tentar atualizar status.' });
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({ erro: 'Pedido não encontrado no banco de dados.' });
         }
-    });
+
+        // Publica o evento no barramento para registrar no histórico e atualizar o dashboard
+        await axios.post('http://localhost:10000/eventos', {
+            tipo: 'PedidoMovido',
+            dados: {
+                pedido_id: idDoPedido,
+                status_anterior: status_anterior,
+                status_novo: status
+            }
+        }).catch(err => console.log('Barramento fora do ar:', err.message));
+
+        res.status(200).json({ mensagem: 'Status do pedido atualizado com sucesso!' });
+    } catch (erro) {
+        console.error("Erro no PUT /tarefas:", erro);
+        res.status(500).json({ erro: 'Erro interno ao tentar atualizar status.' });
+    }
+});
 
 /**
  * ============================================================================
@@ -209,6 +210,12 @@ app.delete('/tarefas/:id', async (req, res) => {
             return res.status(404).json({ erro: 'Pedido não encontrado para exclusão.' });
         }
 
+        await axios.post('http://localhost:10000/eventos', {
+            tipo: 'PedidoDeletado',
+            dados: { pedido_id: idDoPedido }
+        }).catch(err => console.log('Barramento fora do ar:', err.message));
+
+
         res.status(200).json({ mensagem: 'Pedido excluído com sucesso do sistema!' });
     } catch (erro) {
         console.error("Erro no DELETE /tarefas:", erro);
@@ -216,13 +223,22 @@ app.delete('/tarefas/:id', async (req, res) => {
     }
 });
 
-
+/**
+ * ============================================================================
+ * ROTA: OUVIR EVENTOS DO BARRAMENTO
+ * Rota: POST /eventos
+ * ============================================================================
+ */
 app.post('/eventos', async (req, res) => {
     const { tipo, dados } = req.body;
 
     if (tipo === 'ProdutoCriado') {
         try {
-            const sql = 'INSERT INTO produtos (nome, preco) VALUES (?, ?)';
+             const sql = `
+            INSERT INTO produtos (id, nome, preco)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE nome = VALUES(nome), preco = VALUES(preco)
+        `;
             await conexao.query(sql, [dados.nome, dados.preco]);
             console.log(`✅ Produto "${dados.nome}" espelhado no banco principal.`);
         } catch (erro) {
@@ -231,6 +247,51 @@ app.post('/eventos', async (req, res) => {
     }
 
     res.status(200).send({ msg: 'ok' });
+});
+
+/**
+ * ============================================================================
+ * ROTA: SINCRONIZAÇÃO COM O DASHBOARD
+ * Rota: POST /sincronizar
+ * ============================================================================
+ * Republica todos os pedidos e produtos existentes no barramento para que
+ * o dashboard seja populado com os dados históricos.
+ */
+app.post('/sincronizar', async (req, res) => {
+    try {
+        // 1. Republica todos os produtos
+        const [produtos] = await conexao.query('SELECT * FROM produtos');
+        for (const produto of produtos) {
+            await axios.post('http://localhost:10000/eventos', {
+                tipo: 'ProdutoCriado',
+                dados: produto
+            }).catch(err => console.log('Erro ao publicar produto:', err.message));
+        }
+
+        // 2. Republica todos os pedidos com seus itens
+        const [pedidos] = await conexao.query('SELECT * FROM pedidos');
+        for (const pedido of pedidos) {
+            const [itens] = await conexao.query(
+                'SELECT produto_id FROM itens_pedido WHERE pedido_id = ?',
+                [pedido.id]
+            );
+            await axios.post('http://localhost:10000/eventos', {
+                tipo: 'PedidoCriado',
+                dados: {
+                    id: pedido.id,
+                    responsavel: pedido.responsavel,
+                    status: pedido.status,
+                    prioridade: pedido.prioridade,
+                    produtosIds: itens.map(i => i.produto_id)
+                }
+            }).catch(err => console.log('Erro ao publicar pedido:', err.message));
+        }
+
+        res.status(200).json({ mensagem: `Sincronizados ${produtos.length} produtos e ${pedidos.length} pedidos.` });
+    } catch (erro) {
+        console.error('Erro na sincronização:', erro);
+        res.status(500).json({ erro: 'Erro ao sincronizar.' });
+    }
 });
 
 app.listen(3000, () => {
