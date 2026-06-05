@@ -1,5 +1,3 @@
-# Controle seus pedidos e acelere suas vendas
-
 ## Projeto semestral das disciplinas ECM252 e ECM516 do IMT
 
 Alunos: 
